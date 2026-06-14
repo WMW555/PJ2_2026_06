@@ -90,6 +90,12 @@ Run the CIFAR-10 ablation experiments for the main classification task:
 python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode ablation --epochs 5 --n_items 10000 --batch_size 128
 ```
 
+Run the final candidate model training for the report best test error:
+
+```bash
+python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 20 --n_items 20000 --batch_size 128 --lr 1e-3 --optimizer adam
+```
+
 Optional regularization can be added with `--weight_decay`, for example
 `--weight_decay 1e-4`.
 
@@ -136,6 +142,14 @@ The CIFAR-10 ablation experiments write:
 pic/cifar10_ablation_summary.png
 pic/cifar10_ablation_curves.png
 results/cifar10_ablation_results.json
+```
+
+The final training run writes:
+
+```text
+pic/final_training_curves.png
+results/final_training_results.json
+checkpoints/final_vgg_a_bn.pth
 ```
 
 The current landscape experiment measures loss variation across different

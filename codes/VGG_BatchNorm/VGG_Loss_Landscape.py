@@ -28,7 +28,10 @@ def parse_args():
         description="Compare VGG-A and VGG-A-BatchNorm on CIFAR-10."
     )
     parser.add_argument("--mode", type=str, default="comparison",
-                        choices=["smoke", "comparison", "landscape", "ablation"])
+                        choices=["smoke", "comparison", "landscape", "ablation", "final"])
+    parser.add_argument("--model", type=str, default="vgg_a_bn",
+                        choices=["vgg_a", "vgg_a_bn", "vgg_a_light"],
+                        help="Model used by final mode.")
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--n_items", type=int, default=None,
                         help="Use a subset of CIFAR-10 for fast tests. Omit for full data.")
@@ -214,6 +217,16 @@ def get_model_builders():
         "VGG_A": VGG_A,
         "VGG_A_BatchNorm": VGG_A_BatchNorm,
     }
+
+
+def build_named_model(model_name):
+    if model_name == "vgg_a":
+        return "VGG_A", VGG_A()
+    if model_name == "vgg_a_bn":
+        return "VGG_A_BatchNorm", VGG_A_BatchNorm()
+    if model_name == "vgg_a_light":
+        return "VGG_A_Light", VGG_A_Light()
+    raise ValueError(f"Unsupported model: {model_name}")
 
 
 def run_experiment(args):
@@ -710,11 +723,122 @@ def run_ablation(args):
     return metrics
 
 
+def plot_final_training_curves(model_label, history, output_path):
+    epochs = range(1, len(history["train_loss"]) + 1)
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+
+    axes[0].plot(epochs, history["train_loss"], marker="o", color="#4c78a8")
+    axes[0].set_title(f"{model_label} Training Loss")
+    axes[0].set_xlabel("Epoch")
+    axes[0].set_ylabel("Cross-Entropy Loss")
+    axes[0].grid(True, alpha=0.3)
+
+    axes[1].plot(epochs, history["test_accuracy"], marker="o", color="#59a14f")
+    axes[1].set_title(f"{model_label} Test Accuracy")
+    axes[1].set_xlabel("Epoch")
+    axes[1].set_ylabel("Accuracy")
+    axes[1].set_ylim(0.0, 1.0)
+    axes[1].grid(True, alpha=0.3)
+
+    fig.suptitle("Final CIFAR-10 Training Run", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
+def final_checkpoint_name(model_name):
+    if model_name == "vgg_a_bn":
+        return "final_vgg_a_bn.pth"
+    if model_name == "vgg_a_light":
+        return "final_vgg_a_light.pth"
+    return "final_vgg_a.pth"
+
+
+def run_final_training(args):
+    output_dirs = ensure_output_dirs()
+    device = get_device()
+    set_random_seeds(args.seed, device)
+
+    train_loader = get_cifar_loader(
+        root=args.data_root,
+        batch_size=args.batch_size,
+        train=True,
+        shuffle=True,
+        num_workers=args.num_workers,
+        n_items=args.n_items,
+    )
+    test_loader = get_cifar_loader(
+        root=args.data_root,
+        batch_size=args.batch_size,
+        train=False,
+        shuffle=False,
+        num_workers=args.num_workers,
+        n_items=args.n_items,
+    )
+
+    model_label, model = build_named_model(args.model)
+    parameter_count = get_number_of_parameters(model)
+    optimizer = build_optimizer(model, args)
+    criterion = nn.CrossEntropyLoss()
+
+    print(f"\nRunning final training: {model_label}")
+    history = train(
+        model=model,
+        optimizer=optimizer,
+        criterion=criterion,
+        train_loader=train_loader,
+        test_loader=test_loader,
+        device=device,
+        epochs_n=args.epochs,
+        show_progress=args.show_progress,
+    )
+
+    best_test_accuracy = max(history["test_accuracy"])
+    best_epoch = history["test_accuracy"].index(best_test_accuracy) + 1
+    result = {
+        "model_name": model_label,
+        "model_arg": args.model,
+        "epochs": args.epochs,
+        "n_items": args.n_items,
+        "batch_size": args.batch_size,
+        "optimizer": args.optimizer,
+        "lr": args.lr,
+        "weight_decay": args.weight_decay,
+        "seed": args.seed,
+        "parameter_count": parameter_count,
+        "final_train_loss": history["train_loss"][-1],
+        "final_test_accuracy": history["test_accuracy"][-1],
+        "best_test_accuracy": best_test_accuracy,
+        "best_test_error": 1.0 - best_test_accuracy,
+        "best_epoch": best_epoch,
+    }
+
+    metrics = {
+        "args": vars(args),
+        "result": result,
+        "history": history,
+    }
+    metrics_path = output_dirs["results"] / "final_training_results.json"
+    figure_path = output_dirs["pic"] / "final_training_curves.png"
+    checkpoint_path = output_dirs["checkpoints"] / final_checkpoint_name(args.model)
+
+    save_json(metrics, metrics_path)
+    plot_final_training_curves(model_label, history, figure_path)
+    torch.save(model.state_dict(), checkpoint_path)
+
+    print(f"Saved final metrics: {metrics_path}")
+    print(f"Saved final figure: {figure_path}")
+    print(f"Saved final checkpoint: {checkpoint_path}")
+    return metrics
+
+
 if __name__ == "__main__":
     parsed_args = parse_args()
     if parsed_args.mode == "landscape":
         run_loss_landscape(parsed_args)
     elif parsed_args.mode == "ablation":
         run_ablation(parsed_args)
+    elif parsed_args.mode == "final":
+        run_final_training(parsed_args)
     else:
         run_experiment(parsed_args)
