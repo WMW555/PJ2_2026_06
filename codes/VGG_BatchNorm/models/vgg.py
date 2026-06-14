@@ -7,7 +7,13 @@ from torch import nn
 try:
     from utils.nn import init_weights_
 except ImportError:
-    from ..utils.nn import init_weights_
+    try:
+        from ..utils.nn import init_weights_
+    except ImportError:
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from utils.nn import init_weights_
 
 # ## Models implementation
 def get_number_of_parameters(model):
@@ -18,6 +24,14 @@ def get_number_of_parameters(model):
     return parameters_n
 
 
+def make_activation(activation='relu', inplace=True):
+    if activation == 'relu':
+        return nn.ReLU(inplace)
+    if activation == 'leakyrelu':
+        return nn.LeakyReLU(negative_slope=0.1, inplace=inplace)
+    raise ValueError(f'Unsupported activation: {activation}')
+
+
 class VGG_A(nn.Module):
     """VGG_A model
 
@@ -25,46 +39,47 @@ class VGG_A(nn.Module):
     224x224x3
     """
 
-    def __init__(self, inp_ch=3, num_classes=10, init_weights=True):
+    def __init__(self, inp_ch=3, num_classes=10, init_weights=True, activation='relu'):
         super().__init__()
+        act = lambda: make_activation(activation, inplace=True)
 
         self.features = nn.Sequential(
             # stage 1
             nn.Conv2d(in_channels=inp_ch, out_channels=64, kernel_size=3, padding=1),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # stage 2
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # stage 3
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(True),
+            act(),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # stage 4
             nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(True),
+            act(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # stage5
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(True),
+            act(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2))
 
         self.classifier = nn.Sequential(
             nn.Linear(512 * 1 * 1, 512),
-            nn.ReLU(),
+            act(),
             nn.Linear(512, 512),
-            nn.ReLU(),
+            act(),
             nn.Linear(512, num_classes))
 
         if init_weights:
@@ -87,54 +102,55 @@ class VGG_A_BatchNorm(nn.Module):
     CIFAR-10 comparison. BatchNorm is applied before ReLU in each conv block.
     """
 
-    def __init__(self, inp_ch=3, num_classes=10, init_weights=True):
+    def __init__(self, inp_ch=3, num_classes=10, init_weights=True, activation='relu'):
         super().__init__()
+        act = lambda: make_activation(activation, inplace=True)
 
         self.features = nn.Sequential(
             # stage 1
             nn.Conv2d(in_channels=inp_ch, out_channels=64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # stage 2
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # stage 3
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(True),
+            act(),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # stage 4
             nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
-            nn.ReLU(True),
+            act(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # stage 5
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
-            nn.ReLU(True),
+            act(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
-            nn.ReLU(True),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2))
 
         self.classifier = nn.Sequential(
             nn.Linear(512 * 1 * 1, 512),
-            nn.ReLU(),
+            act(),
             nn.Linear(512, 512),
-            nn.ReLU(),
+            act(),
             nn.Linear(512, num_classes))
 
         if init_weights:
@@ -151,17 +167,18 @@ class VGG_A_BatchNorm(nn.Module):
 
 
 class VGG_A_Light(nn.Module):
-    def __init__(self, inp_ch=3, num_classes=10):
+    def __init__(self, inp_ch=3, num_classes=10, activation='relu'):
         super().__init__()
+        act = lambda: make_activation(activation, inplace=True)
 
         self.stage1 = nn.Sequential(
             nn.Conv2d(in_channels=inp_ch, out_channels=16, kernel_size=3, padding=1),
-            nn.ReLU(),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2))
 
         self.stage2 = nn.Sequential(
             nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1),
-            nn.ReLU(),
+            act(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         '''
         self.stage3 = nn.Sequential(
@@ -184,9 +201,9 @@ class VGG_A_Light(nn.Module):
         '''
         self.classifier = nn.Sequential(
             nn.Linear(32 * 8 * 8, 128),
-            nn.ReLU(),
+            act(),
             nn.Linear(128, 128),
-            nn.ReLU(),
+            act(),
             nn.Linear(128, num_classes))
 
     def forward(self, x):

@@ -84,6 +84,12 @@ Run a refined loss landscape comparison with a narrower learning-rate sweep:
 python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode landscape --epochs 5 --n_items 5000 --batch_size 128 --lrs 5e-4 8e-4 1e-3 1.2e-3 --optimizer adam --tag refined
 ```
 
+Run the CIFAR-10 ablation experiments for the main classification task:
+
+```bash
+python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode ablation --epochs 5 --n_items 10000 --batch_size 128
+```
+
 Optional regularization can be added with `--weight_decay`, for example
 `--weight_decay 1e-4`.
 
@@ -122,6 +128,14 @@ pic/vgg_batchnorm_loss_landscape_refined.png
 pic/vgg_batchnorm_loss_landscape_refined_by_lr.png
 results/vgg_batchnorm_loss_landscape_refined_metrics.json
 results/vgg_batchnorm_loss_landscape_refined_summary.json
+```
+
+The CIFAR-10 ablation experiments write:
+
+```text
+pic/cifar10_ablation_summary.png
+pic/cifar10_ablation_curves.png
+results/cifar10_ablation_results.json
 ```
 
 The current landscape experiment measures loss variation across different

@@ -20,7 +20,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from data.loaders import get_cifar_loader
-from models.vgg import VGG_A, VGG_A_BatchNorm
+from models.vgg import VGG_A, VGG_A_BatchNorm, VGG_A_Light, get_number_of_parameters
 
 
 def parse_args():
@@ -28,7 +28,7 @@ def parse_args():
         description="Compare VGG-A and VGG-A-BatchNorm on CIFAR-10."
     )
     parser.add_argument("--mode", type=str, default="comparison",
-                        choices=["smoke", "comparison", "landscape"])
+                        choices=["smoke", "comparison", "landscape", "ablation"])
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--n_items", type=int, default=None,
                         help="Use a subset of CIFAR-10 for fast tests. Omit for full data.")
@@ -140,24 +140,33 @@ def train(model, optimizer, criterion, train_loader, test_loader, device, epochs
     return history
 
 
-def build_optimizer(model, args, lr=None):
-    lr = args.lr if lr is None else lr
-    if args.optimizer == "adam":
+def build_optimizer_by_name(parameters, optimizer_name, lr, weight_decay):
+    if optimizer_name == "adam":
         return torch.optim.Adam(
-            model.parameters(),
+            parameters,
             lr=lr,
-            weight_decay=args.weight_decay,
+            weight_decay=weight_decay,
         )
-    if args.optimizer == "adamw":
+    if optimizer_name == "adamw":
         return torch.optim.AdamW(
-            model.parameters(),
+            parameters,
             lr=lr,
-            weight_decay=args.weight_decay,
+            weight_decay=weight_decay,
         )
     return torch.optim.SGD(
-        model.parameters(),
+        parameters,
         lr=lr,
         momentum=0.9,
+        weight_decay=weight_decay,
+    )
+
+
+def build_optimizer(model, args, lr=None):
+    lr = args.lr if lr is None else lr
+    return build_optimizer_by_name(
+        model.parameters(),
+        optimizer_name=args.optimizer,
+        lr=lr,
         weight_decay=args.weight_decay,
     )
 
@@ -497,9 +506,215 @@ def run_loss_landscape(args):
     return landscape_metrics
 
 
+def build_ablation_model(model_name, activation):
+    if model_name == "VGG_A_Light":
+        return VGG_A_Light(activation=activation)
+    if model_name == "VGG_A":
+        return VGG_A(activation=activation)
+    raise ValueError(f"Unsupported ablation model: {model_name}")
+
+
+def get_ablation_experiments(base_lr):
+    return [
+        {
+            "experiment_name": "capacity_light_relu_adam",
+            "model_name": "VGG_A_Light",
+            "activation": "relu",
+            "optimizer": "adam",
+            "lr": base_lr,
+            "weight_decay": 0.0,
+        },
+        {
+            "experiment_name": "capacity_vgg_a_relu_adam",
+            "model_name": "VGG_A",
+            "activation": "relu",
+            "optimizer": "adam",
+            "lr": base_lr,
+            "weight_decay": 0.0,
+        },
+        {
+            "experiment_name": "activation_vgg_a_leakyrelu_adam",
+            "model_name": "VGG_A",
+            "activation": "leakyrelu",
+            "optimizer": "adam",
+            "lr": base_lr,
+            "weight_decay": 0.0,
+        },
+        {
+            "experiment_name": "optimizer_vgg_a_sgd_momentum",
+            "model_name": "VGG_A",
+            "activation": "relu",
+            "optimizer": "sgd",
+            "lr": 1e-2,
+            "weight_decay": 0.0,
+        },
+        {
+            "experiment_name": "regularization_vgg_a_adam_wd5e-4",
+            "model_name": "VGG_A",
+            "activation": "relu",
+            "optimizer": "adam",
+            "lr": base_lr,
+            "weight_decay": 5e-4,
+        },
+    ]
+
+
+def plot_ablation_summary(results, output_path):
+    names = [result["experiment_name"] for result in results]
+    accuracies = [result["best_test_accuracy"] for result in results]
+
+    fig, ax = plt.subplots(figsize=(11, 5.2))
+    bars = ax.bar(range(len(results)), accuracies, color="#4c78a8")
+    ax.set_title("CIFAR-10 Ablation: Best Test Accuracy")
+    ax.set_xlabel("Experiment")
+    ax.set_ylabel("Best Test Accuracy")
+    ax.set_ylim(0.0, max(accuracies + [0.2]) + 0.08)
+    ax.set_xticks(range(len(results)))
+    ax.set_xticklabels(names, rotation=25, ha="right")
+    ax.grid(axis="y", alpha=0.3)
+
+    for bar, accuracy in zip(bars, accuracies):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.01,
+            f"{accuracy:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_ablation_curves(histories, output_path):
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
+
+    for experiment_name, history in histories.items():
+        epochs = range(1, len(history["train_loss"]) + 1)
+        axes[0].plot(epochs, history["train_loss"], marker="o", label=experiment_name)
+        axes[1].plot(epochs, history["test_accuracy"], marker="o", label=experiment_name)
+
+    axes[0].set_title("Ablation Training Loss")
+    axes[0].set_xlabel("Epoch")
+    axes[0].set_ylabel("Cross-Entropy Loss")
+    axes[0].grid(True, alpha=0.3)
+
+    axes[1].set_title("Ablation Test Accuracy")
+    axes[1].set_xlabel("Epoch")
+    axes[1].set_ylabel("Accuracy")
+    axes[1].set_ylim(0.0, 1.0)
+    axes[1].grid(True, alpha=0.3)
+
+    for axis in axes:
+        axis.legend(fontsize=8)
+
+    fig.suptitle("CIFAR-10 Ablation Training Curves", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
+def run_ablation(args):
+    output_dirs = ensure_output_dirs()
+    device = get_device()
+    set_random_seeds(args.seed, device)
+
+    train_loader = get_cifar_loader(
+        root=args.data_root,
+        batch_size=args.batch_size,
+        train=True,
+        shuffle=True,
+        num_workers=args.num_workers,
+        n_items=args.n_items,
+    )
+    test_loader = get_cifar_loader(
+        root=args.data_root,
+        batch_size=args.batch_size,
+        train=False,
+        shuffle=False,
+        num_workers=args.num_workers,
+        n_items=args.n_items,
+    )
+
+    results = []
+    histories = {}
+    criterion = nn.CrossEntropyLoss()
+
+    for experiment in get_ablation_experiments(args.lr):
+        print(f"\nRunning ablation: {experiment['experiment_name']}")
+        set_random_seeds(args.seed, device)
+        model = build_ablation_model(
+            model_name=experiment["model_name"],
+            activation=experiment["activation"],
+        )
+        parameter_count = get_number_of_parameters(model)
+        optimizer = build_optimizer_by_name(
+            model.parameters(),
+            optimizer_name=experiment["optimizer"],
+            lr=experiment["lr"],
+            weight_decay=experiment["weight_decay"],
+        )
+        history = train(
+            model=model,
+            optimizer=optimizer,
+            criterion=criterion,
+            train_loader=train_loader,
+            test_loader=test_loader,
+            device=device,
+            epochs_n=args.epochs,
+            show_progress=args.show_progress,
+        )
+        histories[experiment["experiment_name"]] = history
+
+        best_test_accuracy = max(history["test_accuracy"])
+        result = {
+            "experiment_name": experiment["experiment_name"],
+            "model_name": experiment["model_name"],
+            "activation": experiment["activation"],
+            "optimizer": experiment["optimizer"],
+            "lr": experiment["lr"],
+            "weight_decay": experiment["weight_decay"],
+            "n_items": args.n_items,
+            "epochs": args.epochs,
+            "parameter_count": parameter_count,
+            "final_train_loss": history["train_loss"][-1],
+            "final_test_accuracy": history["test_accuracy"][-1],
+            "best_test_accuracy": best_test_accuracy,
+            "best_test_error": 1.0 - best_test_accuracy,
+        }
+        results.append(result)
+        print(
+            f"{experiment['experiment_name']}: "
+            f"best_test_accuracy={best_test_accuracy:.4f}, "
+            f"best_test_error={1.0 - best_test_accuracy:.4f}"
+        )
+
+    metrics = {
+        "args": vars(args),
+        "results": results,
+        "histories": histories,
+    }
+    metrics_path = output_dirs["results"] / "cifar10_ablation_results.json"
+    summary_path = output_dirs["pic"] / "cifar10_ablation_summary.png"
+    curves_path = output_dirs["pic"] / "cifar10_ablation_curves.png"
+
+    save_json(metrics, metrics_path)
+    plot_ablation_summary(results, summary_path)
+    plot_ablation_curves(histories, curves_path)
+
+    print(f"Saved ablation results: {metrics_path}")
+    print(f"Saved ablation summary figure: {summary_path}")
+    print(f"Saved ablation curves figure: {curves_path}")
+    return metrics
+
+
 if __name__ == "__main__":
     parsed_args = parse_args()
     if parsed_args.mode == "landscape":
         run_loss_landscape(parsed_args)
+    elif parsed_args.mode == "ablation":
+        run_ablation(parsed_args)
     else:
         run_experiment(parsed_args)
