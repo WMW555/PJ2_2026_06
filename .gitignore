@@ -1,0 +1,12 @@
+/data/
+/datasets/
+/checkpoints/
+/results/
+
+__pycache__/
+*.pyc
+*.pth
+*.pt
+*.ckpt
+*.tar.gz
+.DS_Store
