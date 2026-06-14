@@ -10,3 +10,4 @@ __pycache__/
 *.ckpt
 *.tar.gz
 .DS_Store
+codes/VGG_BatchNorm/data/cifar-10-batches-py/
