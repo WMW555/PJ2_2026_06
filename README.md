@@ -85,44 +85,4 @@ Final regularized model:
 
 The result is recorded in `results/final_training_regularized_results.json` locally. The `results/` directory is ignored by Git, so this README keeps the main summary.
 
-## Model Weights
 
-Model checkpoints are not included in GitHub because of file size.
-
-Final checkpoint used for the report:
-
-```text
-checkpoints/final_vgg_a_bn_regularized.pth
-```
-
-Model weights link:
-
-```text
-[TO BE FILLED: model weights link]
-```
-
-## Report
-
-Current Word draft:
-
-```text
-PJ2_Report_CIFAR10_BatchNorm_吴煜升_24300820004.docx
-```
-
-Final PDF report:
-
-```text
-[TO BE FILLED: final PDF report filename]
-```
-
-Report material notes are in:
-
-```text
-report_materials.md
-```
-
-## Notes for Submission
-
-- Do not commit `checkpoints/`, `.pth`, `.pt`, CIFAR-10 data files, or `results/`.
-- Upload model weights separately and put the link in the report.
-- Include the GitHub repository link, dataset source, model weights link, name, and student ID in the final PDF report.
