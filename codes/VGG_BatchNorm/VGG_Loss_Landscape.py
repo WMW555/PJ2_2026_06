@@ -746,12 +746,14 @@ def plot_final_training_curves(model_label, history, output_path):
     plt.close(fig)
 
 
-def final_checkpoint_name(model_name):
+def final_checkpoint_name(model_name, tag=""):
+    clean_tag = "".join(ch for ch in tag.strip() if ch.isalnum() or ch in ("_", "-"))
+    suffix = f"_{clean_tag}" if clean_tag else ""
     if model_name == "vgg_a_bn":
-        return "final_vgg_a_bn.pth"
+        return f"final_vgg_a_bn{suffix}.pth"
     if model_name == "vgg_a_light":
-        return "final_vgg_a_light.pth"
-    return "final_vgg_a.pth"
+        return f"final_vgg_a_light{suffix}.pth"
+    return f"final_vgg_a{suffix}.pth"
 
 
 def run_final_training(args):
@@ -818,9 +820,10 @@ def run_final_training(args):
         "result": result,
         "history": history,
     }
-    metrics_path = output_dirs["results"] / "final_training_results.json"
-    figure_path = output_dirs["pic"] / "final_training_curves.png"
-    checkpoint_path = output_dirs["checkpoints"] / final_checkpoint_name(args.model)
+    output_stem = make_output_stem("final_training", args.tag)
+    metrics_path = output_dirs["results"] / f"{output_stem}_results.json"
+    figure_path = output_dirs["pic"] / f"{output_stem}_curves.png"
+    checkpoint_path = output_dirs["checkpoints"] / final_checkpoint_name(args.model, args.tag)
 
     save_json(metrics, metrics_path)
     plot_final_training_curves(model_label, history, figure_path)

@@ -96,6 +96,12 @@ Run the final candidate model training for the report best test error:
 python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 20 --n_items 20000 --batch_size 128 --lr 1e-3 --optimizer adam
 ```
 
+Run the final candidate model on the full CIFAR-10 training set:
+
+```bash
+python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 20 --batch_size 128 --lr 1e-3 --optimizer adam --tag full
+```
+
 Optional regularization can be added with `--weight_decay`, for example
 `--weight_decay 1e-4`.
 
@@ -150,6 +156,14 @@ The final training run writes:
 pic/final_training_curves.png
 results/final_training_results.json
 checkpoints/final_vgg_a_bn.pth
+```
+
+The full-dataset final training run writes:
+
+```text
+pic/final_training_full_curves.png
+results/final_training_full_results.json
+checkpoints/final_vgg_a_bn_full.pth
 ```
 
 The current landscape experiment measures loss variation across different
