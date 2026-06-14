@@ -108,6 +108,12 @@ Run the regularized final candidate model with augmentation and cosine LR:
 python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 30 --batch_size 128 --lr 1e-3 --optimizer adamw --weight_decay 5e-4 --scheduler cosine --augment --tag regularized
 ```
 
+Visualize the first-layer filters from the regularized final model:
+
+```bash
+python codes/VGG_BatchNorm/visualize_filters.py --model vgg_a_bn --checkpoint checkpoints/final_vgg_a_bn_regularized.pth --output pic/first_layer_filters_regularized.png
+```
+
 Optional regularization can be added with `--weight_decay`, for example
 `--weight_decay 1e-4`.
 
@@ -178,6 +184,12 @@ The regularized final training run writes:
 pic/final_training_regularized_curves.png
 results/final_training_regularized_results.json
 checkpoints/final_vgg_a_bn_regularized.pth
+```
+
+The first-layer filter visualization writes:
+
+```text
+pic/first_layer_filters_regularized.png
 ```
 
 The current landscape experiment measures loss variation across different
