@@ -44,6 +44,8 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=2020)
     parser.add_argument("--data_root", type=str, default=str(SCRIPT_DIR / "data"))
     parser.add_argument("--show_progress", action="store_true")
+    parser.add_argument("--tag", type=str, default="",
+                        help="Optional output tag for landscape runs, e.g. refined.")
     return parser.parse_args()
 
 
@@ -191,6 +193,11 @@ def plot_training_curves(histories, output_path):
 def save_json(data, path):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
+
+def make_output_stem(base_name, tag):
+    clean_tag = "".join(ch for ch in tag.strip() if ch.isalnum() or ch in ("_", "-"))
+    return f"{base_name}_{clean_tag}" if clean_tag else base_name
 
 
 def get_model_builders():
@@ -473,10 +480,11 @@ def run_loss_landscape(args):
 
         landscape_metrics["models"][model_name] = summarize_loss_variation(loss_by_lr)
 
-    metrics_path = output_dirs["results"] / "vgg_batchnorm_loss_landscape_metrics.json"
-    figure_path = output_dirs["pic"] / "vgg_batchnorm_loss_landscape.png"
-    by_lr_figure_path = output_dirs["pic"] / "vgg_batchnorm_loss_landscape_by_lr.png"
-    summary_path = output_dirs["results"] / "vgg_batchnorm_loss_landscape_summary.json"
+    output_stem = make_output_stem("vgg_batchnorm_loss_landscape", args.tag)
+    metrics_path = output_dirs["results"] / f"{output_stem}_metrics.json"
+    figure_path = output_dirs["pic"] / f"{output_stem}.png"
+    by_lr_figure_path = output_dirs["pic"] / f"{output_stem}_by_lr.png"
+    summary_path = output_dirs["results"] / f"{output_stem}_summary.json"
     save_json(landscape_metrics, metrics_path)
     plot_loss_landscape(landscape_metrics, figure_path)
     plot_loss_by_lr(landscape_metrics, by_lr_figure_path)

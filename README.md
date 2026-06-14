@@ -78,6 +78,12 @@ Run the loss landscape comparison across several learning rates:
 python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode landscape --epochs 5 --n_items 5000 --batch_size 128 --lrs 1e-3 2e-3 5e-4 1e-4 --optimizer adam
 ```
 
+Run a refined loss landscape comparison with a narrower learning-rate sweep:
+
+```bash
+python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode landscape --epochs 5 --n_items 5000 --batch_size 128 --lrs 5e-4 8e-4 1e-3 1.2e-3 --optimizer adam --tag refined
+```
+
 Optional regularization can be added with `--weight_decay`, for example
 `--weight_decay 1e-4`.
 
@@ -109,10 +115,22 @@ results/vgg_batchnorm_loss_landscape_metrics.json
 results/vgg_batchnorm_loss_landscape_summary.json
 ```
 
+The refined loss landscape comparison writes:
+
+```text
+pic/vgg_batchnorm_loss_landscape_refined.png
+pic/vgg_batchnorm_loss_landscape_refined_by_lr.png
+results/vgg_batchnorm_loss_landscape_refined_metrics.json
+results/vgg_batchnorm_loss_landscape_refined_summary.json
+```
+
 The current landscape experiment measures loss variation across different
 learning rates during training. It is useful for comparing sensitivity and
 stability under the selected learning-rate sweep, but it is not the full
 parameter-space loss landscape analysis used in stricter research settings.
+The original sweep uses a wider range of learning rates, while the refined
+sweep uses a narrower range to observe whether the BatchNorm and non-BatchNorm
+models behave differently under a less extreme optimizer setting.
 
 ## Notes
 
