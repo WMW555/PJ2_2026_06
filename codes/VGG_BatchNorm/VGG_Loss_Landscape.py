@@ -44,6 +44,9 @@ def parse_args():
     parser.add_argument("--optimizer", type=str, default="adam",
                         choices=["adam", "adamw", "sgd"])
     parser.add_argument("--weight_decay", type=float, default=0.0)
+    parser.add_argument("--scheduler", type=str, default="none",
+                        choices=["none", "cosine"])
+    parser.add_argument("--augment", action="store_true")
     parser.add_argument("--seed", type=int, default=2020)
     parser.add_argument("--data_root", type=str, default=str(SCRIPT_DIR / "data"))
     parser.add_argument("--show_progress", action="store_true")
@@ -97,17 +100,20 @@ def get_accuracy(model, data_loader, device):
     return correct / total if total else 0.0
 
 
-def train(model, optimizer, criterion, train_loader, test_loader, device, epochs_n=1, show_progress=False):
+def train(model, optimizer, criterion, train_loader, test_loader, device, epochs_n=1,
+          show_progress=False, scheduler=None):
     model.to(device)
     history = {
         "train_loss": [],
         "test_accuracy": [],
+        "lr": [],
     }
 
     for epoch in range(epochs_n):
         model.train()
         running_loss = 0.0
         seen = 0
+        history["lr"].append(optimizer.param_groups[0]["lr"])
 
         progress = tqdm(
             train_loader,
@@ -139,6 +145,8 @@ def train(model, optimizer, criterion, train_loader, test_loader, device, epochs
             f"Epoch {epoch + 1}/{epochs_n}: "
             f"train_loss={train_loss:.4f}, test_accuracy={test_accuracy:.4f}"
         )
+        if scheduler is not None:
+            scheduler.step()
 
     return history
 
@@ -172,6 +180,15 @@ def build_optimizer(model, args, lr=None):
         lr=lr,
         weight_decay=args.weight_decay,
     )
+
+
+def build_scheduler(optimizer, args):
+    if args.scheduler == "cosine":
+        return torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=args.epochs,
+        )
+    return None
 
 
 def plot_training_curves(histories, output_path):
@@ -241,6 +258,7 @@ def run_experiment(args):
         shuffle=True,
         num_workers=args.num_workers,
         n_items=args.n_items,
+        augment=args.augment,
     )
     test_loader = get_cifar_loader(
         root=args.data_root,
@@ -249,6 +267,7 @@ def run_experiment(args):
         shuffle=False,
         num_workers=args.num_workers,
         n_items=args.n_items,
+        augment=False,
     )
 
     histories = {}
@@ -260,6 +279,7 @@ def run_experiment(args):
         set_random_seeds(args.seed, device)
         model = model_builder()
         optimizer = build_optimizer(model, args)
+        scheduler = build_scheduler(optimizer, args)
         criterion = nn.CrossEntropyLoss()
         history = train(
             model=model,
@@ -270,6 +290,7 @@ def run_experiment(args):
             device=device,
             epochs_n=args.epochs,
             show_progress=args.show_progress,
+            scheduler=scheduler,
         )
         histories[model_name] = history
 
@@ -470,6 +491,7 @@ def run_loss_landscape(args):
         shuffle=True,
         num_workers=args.num_workers,
         n_items=args.n_items,
+        augment=args.augment,
     )
 
     landscape_metrics = {
@@ -641,6 +663,7 @@ def run_ablation(args):
         shuffle=True,
         num_workers=args.num_workers,
         n_items=args.n_items,
+        augment=args.augment,
     )
     test_loader = get_cifar_loader(
         root=args.data_root,
@@ -649,6 +672,7 @@ def run_ablation(args):
         shuffle=False,
         num_workers=args.num_workers,
         n_items=args.n_items,
+        augment=False,
     )
 
     results = []
@@ -669,6 +693,7 @@ def run_ablation(args):
             lr=experiment["lr"],
             weight_decay=experiment["weight_decay"],
         )
+        scheduler = build_scheduler(optimizer, args)
         history = train(
             model=model,
             optimizer=optimizer,
@@ -678,6 +703,7 @@ def run_ablation(args):
             device=device,
             epochs_n=args.epochs,
             show_progress=args.show_progress,
+            scheduler=scheduler,
         )
         histories[experiment["experiment_name"]] = history
 
@@ -768,6 +794,7 @@ def run_final_training(args):
         shuffle=True,
         num_workers=args.num_workers,
         n_items=args.n_items,
+        augment=args.augment,
     )
     test_loader = get_cifar_loader(
         root=args.data_root,
@@ -776,11 +803,13 @@ def run_final_training(args):
         shuffle=False,
         num_workers=args.num_workers,
         n_items=args.n_items,
+        augment=False,
     )
 
     model_label, model = build_named_model(args.model)
     parameter_count = get_number_of_parameters(model)
     optimizer = build_optimizer(model, args)
+    scheduler = build_scheduler(optimizer, args)
     criterion = nn.CrossEntropyLoss()
 
     print(f"\nRunning final training: {model_label}")
@@ -793,6 +822,7 @@ def run_final_training(args):
         device=device,
         epochs_n=args.epochs,
         show_progress=args.show_progress,
+        scheduler=scheduler,
     )
 
     best_test_accuracy = max(history["test_accuracy"])
@@ -806,6 +836,8 @@ def run_final_training(args):
         "optimizer": args.optimizer,
         "lr": args.lr,
         "weight_decay": args.weight_decay,
+        "scheduler": args.scheduler,
+        "augment": args.augment,
         "seed": args.seed,
         "parameter_count": parameter_count,
         "final_train_loss": history["train_loss"][-1],

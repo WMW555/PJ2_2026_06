@@ -102,6 +102,12 @@ Run the final candidate model on the full CIFAR-10 training set:
 python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 20 --batch_size 128 --lr 1e-3 --optimizer adam --tag full
 ```
 
+Run the regularized final candidate model with augmentation and cosine LR:
+
+```bash
+python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 30 --batch_size 128 --lr 1e-3 --optimizer adamw --weight_decay 5e-4 --scheduler cosine --augment --tag regularized
+```
+
 Optional regularization can be added with `--weight_decay`, for example
 `--weight_decay 1e-4`.
 
@@ -164,6 +170,14 @@ The full-dataset final training run writes:
 pic/final_training_full_curves.png
 results/final_training_full_results.json
 checkpoints/final_vgg_a_bn_full.pth
+```
+
+The regularized final training run writes:
+
+```text
+pic/final_training_regularized_curves.png
+results/final_training_regularized_results.json
+checkpoints/final_vgg_a_bn_regularized.pth
 ```
 
 The current landscape experiment measures loss variation across different

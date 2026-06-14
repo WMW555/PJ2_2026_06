@@ -23,13 +23,22 @@ class PartialDataset(Dataset):
         return min(self.n_items, len(self.dataset))
 
 
-def get_cifar_loader(root='../data/', batch_size=128, train=True, shuffle=True, num_workers=4, n_items=None):
+def get_cifar_loader(root='../data/', batch_size=128, train=True, shuffle=True, num_workers=4,
+                     n_items=None, augment=False):
     normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5],
                                      std=[0.5, 0.5, 0.5])
 
-    data_transforms = transforms.Compose(
-        [transforms.ToTensor(),
-        normalize])
+    transform_steps = []
+    if train and augment:
+        transform_steps.extend([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+        ])
+    transform_steps.extend([
+        transforms.ToTensor(),
+        normalize,
+    ])
+    data_transforms = transforms.Compose(transform_steps)
 
     dataset = datasets.CIFAR10(root=root, train=train, download=True, transform=data_transforms)
     if n_items is not None and n_items > 0:
