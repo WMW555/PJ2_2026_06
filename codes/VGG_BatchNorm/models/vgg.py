@@ -15,7 +15,6 @@ except ImportError:
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         from utils.nn import init_weights_
 
-# ## Models implementation
 def get_number_of_parameters(model):
     parameters_n = 0
     for parameter in model.parameters():
@@ -167,6 +166,8 @@ class VGG_A_BatchNorm(nn.Module):
 
 
 class VGG_A_Light(nn.Module):
+    """Small model used for the capacity ablation."""
+
     def __init__(self, inp_ch=3, num_classes=10, activation='relu'):
         super().__init__()
         act = lambda: make_activation(activation, inplace=True)
@@ -180,25 +181,6 @@ class VGG_A_Light(nn.Module):
             nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1),
             act(),
             nn.MaxPool2d(kernel_size=2, stride=2))
-        '''
-        self.stage3 = nn.Sequential(
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2))
-
-        self.stage4 = nn.Sequential(
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
-            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2))
-
-        self.stage5 = nn.Sequential(
-            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2))
-        '''
         self.classifier = nn.Sequential(
             nn.Linear(32 * 8 * 8, 128),
             act(),
@@ -209,9 +191,6 @@ class VGG_A_Light(nn.Module):
     def forward(self, x):
         x = self.stage1(x)
         x = self.stage2(x)
-        # x = self.stage3(x)
-        # x = self.stage4(x)
-        # x = self.stage5(x)
         x = self.classifier(x.view(-1, 32 * 8 * 8))
         return x
 

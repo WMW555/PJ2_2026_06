@@ -30,6 +30,7 @@ def get_cifar_loader(root='../data/', batch_size=128, train=True, shuffle=True, 
 
     transform_steps = []
     if train and augment:
+        # Augmentation is used only for training data in final regularized runs.
         transform_steps.extend([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
@@ -42,6 +43,7 @@ def get_cifar_loader(root='../data/', batch_size=128, train=True, shuffle=True, 
 
     dataset = datasets.CIFAR10(root=root, train=train, download=True, transform=data_transforms)
     if n_items is not None and n_items > 0:
+        # Use a subset of CIFAR-10 for faster comparison experiments.
         dataset = PartialDataset(dataset, n_items)
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)

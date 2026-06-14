@@ -1,205 +1,128 @@
 # Neural Network and Deep Learning Project 2
 
-This repository contains the code and experiment materials for Project 2 of the Neural Network and Deep Learning course.
+Course project on CIFAR-10 classification and Batch Normalization analysis.
 
-## Project Goal
+The main model is a VGG-A style CNN with BatchNorm trained on CIFAR-10. The project also includes ablation experiments, loss-variation analysis, and first-layer filter visualization for the final report.
 
-The project focuses on CIFAR-10 image classification and Batch Normalization analysis.
-
-Main tasks include:
-
-1. Train neural network models on CIFAR-10.
-2. Build a network containing:
-
-   * Fully connected layers
-   * 2D convolutional layers
-   * 2D pooling layers
-   * Activation functions
-3. Try at least one additional component, such as:
-
-   * Batch Normalization
-   * Dropout
-   * Residual connection
-4. Compare different model or training settings, including:
-
-   * Number of filters or neurons
-   * Loss functions or regularization
-   * Activation functions
-   * Optimizers
-5. Compare VGG-A with and without Batch Normalization.
-6. Generate visualizations such as training curves, loss landscape, or learned filters.
-
-## Directory Structure
+## Code Structure
 
 ```text
-.
-├── codes/          # Source code for training, testing, and visualization
-├── pic/            # Generated figures for the report
-├── checkpoints/    # Trained model weights, ignored by git
-├── data/           # CIFAR-10 dataset, ignored by git
-├── results/        # Experiment logs and metrics
-├── project_2_2026.pdf
-├── AGENTS.md
-└── README.md
+codes/VGG_BatchNorm/
+  VGG_Loss_Landscape.py      Main script for smoke, BN comparison, landscape, ablation, and final runs
+  visualize_filters.py       Visualizes first-layer convolution filters from a trained checkpoint
+  models/vgg.py              VGG_A, VGG_A_BatchNorm, VGG_A_Light, VGG_A_Dropout
+  data/loaders.py            CIFAR-10 dataloaders, subset training, and optional augmentation
+  utils/nn.py                Weight initialization helpers
+pic/                         Report figures
+results/                     Local experiment metrics, ignored by Git
+checkpoints/                 Local model weights, ignored by Git
 ```
 
 ## Environment
 
-The code is expected to run with Python and PyTorch.
-
 Recommended packages:
 
 ```bash
-pip install torch torchvision matplotlib numpy
+pip install torch torchvision matplotlib numpy tqdm python-docx
 ```
 
-If additional packages are used later, they should be recorded here.
+The code uses PyTorch and torchvision. GPU is used automatically when available.
 
-## How to Run
+## Dataset
 
-Run a quick smoke test comparing VGG-A with and without BatchNorm:
+CIFAR-10 is loaded with `torchvision.datasets.CIFAR10`.
+
+Official source: https://www.cs.toronto.edu/~kriz/cifar.html
+
+The dataset files are not included in GitHub. They can be downloaded automatically by the dataloader.
+
+## Main Commands
+
+BatchNorm comparison:
 
 ```bash
-python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --epochs 1 --n_items 1000
+python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode comparison --epochs 10 --n_items 10000 --batch_size 128 --lr 1e-3 --optimizer adam
 ```
 
-Use `--n_items` for a small CIFAR-10 subset during debugging. Omit it to use the
-full training and test sets.
-
-Run the BatchNorm comparison experiment for report figures:
-
-```bash
-python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode comparison --epochs 5 --n_items 5000 --batch_size 128 --lr 1e-3 --optimizer adam
-```
-
-Run the loss landscape comparison across several learning rates:
-
-```bash
-python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode landscape --epochs 5 --n_items 5000 --batch_size 128 --lrs 1e-3 2e-3 5e-4 1e-4 --optimizer adam
-```
-
-Run a refined loss landscape comparison with a narrower learning-rate sweep:
-
-```bash
-python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode landscape --epochs 5 --n_items 5000 --batch_size 128 --lrs 5e-4 8e-4 1e-3 1.2e-3 --optimizer adam --tag refined
-```
-
-Run the CIFAR-10 ablation experiments for the main classification task:
+CIFAR-10 ablation experiments:
 
 ```bash
 python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode ablation --epochs 5 --n_items 10000 --batch_size 128
 ```
 
-Run the final candidate model training for the report best test error:
-
-```bash
-python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 20 --n_items 20000 --batch_size 128 --lr 1e-3 --optimizer adam
-```
-
-Run the final candidate model on the full CIFAR-10 training set:
-
-```bash
-python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 20 --batch_size 128 --lr 1e-3 --optimizer adam --tag full
-```
-
-Run the regularized final candidate model with augmentation and cosine LR:
+Final regularized training:
 
 ```bash
 python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --mode final --model vgg_a_bn --epochs 30 --batch_size 128 --lr 1e-3 --optimizer adamw --weight_decay 5e-4 --scheduler cosine --augment --tag regularized
 ```
 
-Visualize the first-layer filters from the regularized final model:
+Filter visualization:
 
 ```bash
 python codes/VGG_BatchNorm/visualize_filters.py --model vgg_a_bn --checkpoint checkpoints/final_vgg_a_bn_regularized.pth --output pic/first_layer_filters_regularized.png
 ```
 
-Optional regularization can be added with `--weight_decay`, for example
-`--weight_decay 1e-4`.
+Build the Word report draft:
 
-## Outputs
-
-Generated outputs should be saved as follows:
-
-```text
-pic/              # figures used in the report
-checkpoints/      # trained model weights
-results/          # logs, metrics, and experiment records
+```bash
+python build_report_docx.py
 ```
 
-The VGG-A vs VGG-A-BatchNorm comparison writes:
+## Main Result
+
+Final regularized model:
+
+- Model: `VGG_A_BatchNorm`
+- Dataset: full CIFAR-10 training set
+- Optimizer: AdamW
+- Learning rate: `1e-3`
+- Weight decay: `5e-4`
+- Scheduler: cosine
+- Augmentation: RandomCrop + RandomHorizontalFlip
+- Best test accuracy: `0.8959`
+- Best test error: `0.1041`
+- Best epoch: `28`
+
+The result is recorded in `results/final_training_regularized_results.json` locally. The `results/` directory is ignored by Git, so this README keeps the main summary.
+
+## Model Weights
+
+Model checkpoints are not included in GitHub because of file size.
+
+Final checkpoint used for the report:
 
 ```text
-pic/vgg_batchnorm_comparison_curves.png
-results/vgg_batchnorm_comparison_metrics.json
-checkpoints/VGG_A_comparison.pth
-checkpoints/VGG_A_BatchNorm_comparison.pth
-```
-
-The loss landscape comparison writes:
-
-```text
-pic/vgg_batchnorm_loss_landscape.png
-pic/vgg_batchnorm_loss_landscape_by_lr.png
-results/vgg_batchnorm_loss_landscape_metrics.json
-results/vgg_batchnorm_loss_landscape_summary.json
-```
-
-The refined loss landscape comparison writes:
-
-```text
-pic/vgg_batchnorm_loss_landscape_refined.png
-pic/vgg_batchnorm_loss_landscape_refined_by_lr.png
-results/vgg_batchnorm_loss_landscape_refined_metrics.json
-results/vgg_batchnorm_loss_landscape_refined_summary.json
-```
-
-The CIFAR-10 ablation experiments write:
-
-```text
-pic/cifar10_ablation_summary.png
-pic/cifar10_ablation_curves.png
-results/cifar10_ablation_results.json
-```
-
-The final training run writes:
-
-```text
-pic/final_training_curves.png
-results/final_training_results.json
-checkpoints/final_vgg_a_bn.pth
-```
-
-The full-dataset final training run writes:
-
-```text
-pic/final_training_full_curves.png
-results/final_training_full_results.json
-checkpoints/final_vgg_a_bn_full.pth
-```
-
-The regularized final training run writes:
-
-```text
-pic/final_training_regularized_curves.png
-results/final_training_regularized_results.json
 checkpoints/final_vgg_a_bn_regularized.pth
 ```
 
-The first-layer filter visualization writes:
+Model weights link:
 
 ```text
-pic/first_layer_filters_regularized.png
+[TO BE FILLED: model weights link]
 ```
 
-The current landscape experiment measures loss variation across different
-learning rates during training. It is useful for comparing sensitivity and
-stability under the selected learning-rate sweep, but it is not the full
-parameter-space loss landscape analysis used in stricter research settings.
-The original sweep uses a wider range of learning rates, while the refined
-sweep uses a narrower range to observe whether the BatchNorm and non-BatchNorm
-models behave differently under a less extreme optimizer setting.
+## Report
 
-## Notes
+Current Word draft:
 
-Large files such as datasets and model weights should not be committed to GitHub. They should be uploaded to a cloud drive or netdisk service, and the links should be included in the final report.
+```text
+PJ2_Report_CIFAR10_BatchNorm_吴煜升_24300820004.docx
+```
+
+Final PDF report:
+
+```text
+[TO BE FILLED: final PDF report filename]
+```
+
+Report material notes are in:
+
+```text
+report_materials.md
+```
+
+## Notes for Submission
+
+- Do not commit `checkpoints/`, `.pth`, `.pt`, CIFAR-10 data files, or `results/`.
+- Upload model weights separately and put the link in the report.
+- Include the GitHub repository link, dataset source, model weights link, name, and student ID in the final PDF report.

@@ -355,6 +355,7 @@ def train_loss_curve(model, optimizer, criterion, train_loader, device, epochs_n
 
 
 def summarize_loss_variation(loss_by_lr):
+    # LR sweep variation is the max-min training loss range at each epoch.
     loss_matrix = np.array(list(loss_by_lr.values()), dtype=float)
     min_curve = loss_matrix.min(axis=0).tolist()
     max_curve = loss_matrix.max(axis=0).tolist()
@@ -550,6 +551,7 @@ def build_ablation_model(model_name, activation):
 
 
 def get_ablation_experiments(base_lr):
+    # Compact suite covering capacity, activation, optimizer, and regularization.
     return [
         {
             "experiment_name": "capacity_light_relu_adam",
@@ -852,6 +854,7 @@ def run_final_training(args):
         "result": result,
         "history": history,
     }
+    # Tags keep full and regularized final runs from overwriting each other.
     output_stem = make_output_stem("final_training", args.tag)
     metrics_path = output_dirs["results"] / f"{output_stem}_results.json"
     figure_path = output_dirs["pic"] / f"{output_stem}_curves.png"
