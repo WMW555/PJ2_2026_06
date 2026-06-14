@@ -66,6 +66,15 @@ python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --epochs 1 --n_items 1000
 Use `--n_items` for a small CIFAR-10 subset during debugging. Omit it to use the
 full training and test sets.
 
+Run the BatchNorm comparison experiment for report figures:
+
+```bash
+python codes/VGG_BatchNorm/VGG_Loss_Landscape.py --epochs 5 --n_items 5000 --batch_size 128 --lr 1e-3 --optimizer adam
+```
+
+Optional regularization can be added with `--weight_decay`, for example
+`--weight_decay 1e-4`.
+
 ## Outputs
 
 Generated outputs should be saved as follows:
@@ -74,6 +83,15 @@ Generated outputs should be saved as follows:
 pic/              # figures used in the report
 checkpoints/      # trained model weights
 results/          # logs, metrics, and experiment records
+```
+
+The VGG-A vs VGG-A-BatchNorm comparison writes:
+
+```text
+pic/vgg_batchnorm_comparison_curves.png
+results/vgg_batchnorm_comparison_metrics.json
+checkpoints/VGG_A_comparison.pth
+checkpoints/VGG_A_BatchNorm_comparison.pth
 ```
 
 ## Notes

@@ -25,7 +25,7 @@ from models.vgg import VGG_A, VGG_A_BatchNorm
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Smoke-test VGG-A and VGG-A-BatchNorm on CIFAR-10."
+        description="Compare VGG-A and VGG-A-BatchNorm on CIFAR-10."
     )
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--n_items", type=int, default=None,
@@ -33,8 +33,12 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--optimizer", type=str, default="adam",
+                        choices=["adam", "adamw", "sgd"])
+    parser.add_argument("--weight_decay", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=2020)
     parser.add_argument("--data_root", type=str, default=str(SCRIPT_DIR / "data"))
+    parser.add_argument("--show_progress", action="store_true")
     return parser.parse_args()
 
 
@@ -83,7 +87,7 @@ def get_accuracy(model, data_loader, device):
     return correct / total if total else 0.0
 
 
-def train(model, optimizer, criterion, train_loader, test_loader, device, epochs_n=1):
+def train(model, optimizer, criterion, train_loader, test_loader, device, epochs_n=1, show_progress=False):
     model.to(device)
     history = {
         "train_loss": [],
@@ -95,7 +99,13 @@ def train(model, optimizer, criterion, train_loader, test_loader, device, epochs
         running_loss = 0.0
         seen = 0
 
-        progress = tqdm(train_loader, desc=f"epoch {epoch + 1}/{epochs_n}", unit="batch")
+        progress = tqdm(
+            train_loader,
+            desc=f"epoch {epoch + 1}/{epochs_n}",
+            unit="batch",
+            leave=False,
+            disable=not show_progress,
+        )
         for x, y in progress:
             x = x.to(device)
             y = y.to(device)
@@ -123,27 +133,50 @@ def train(model, optimizer, criterion, train_loader, test_loader, device, epochs
     return history
 
 
+def build_optimizer(model, args):
+    if args.optimizer == "adam":
+        return torch.optim.Adam(
+            model.parameters(),
+            lr=args.lr,
+            weight_decay=args.weight_decay,
+        )
+    if args.optimizer == "adamw":
+        return torch.optim.AdamW(
+            model.parameters(),
+            lr=args.lr,
+            weight_decay=args.weight_decay,
+        )
+    return torch.optim.SGD(
+        model.parameters(),
+        lr=args.lr,
+        momentum=0.9,
+        weight_decay=args.weight_decay,
+    )
+
+
 def plot_training_curves(histories, output_path):
     epochs = range(1, len(next(iter(histories.values()))["train_loss"]) + 1)
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
 
     for name, history in histories.items():
         axes[0].plot(epochs, history["train_loss"], marker="o", label=name)
         axes[1].plot(epochs, history["test_accuracy"], marker="o", label=name)
 
-    axes[0].set_title("Train Loss")
+    axes[0].set_title("Training Loss by Epoch")
     axes[0].set_xlabel("Epoch")
-    axes[0].set_ylabel("Loss")
+    axes[0].set_ylabel("Cross-Entropy Loss")
     axes[0].grid(True, alpha=0.3)
 
-    axes[1].set_title("Test Accuracy")
+    axes[1].set_title("Test Accuracy by Epoch")
     axes[1].set_xlabel("Epoch")
     axes[1].set_ylabel("Accuracy")
+    axes[1].set_ylim(0.0, 1.0)
     axes[1].grid(True, alpha=0.3)
 
     for axis in axes:
         axis.legend()
 
+    fig.suptitle("VGG-A vs VGG-A-BatchNorm on CIFAR-10", fontsize=13)
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
@@ -186,7 +219,7 @@ def run_experiment(args):
         print(f"\nTraining {model_name}")
         set_random_seeds(args.seed, device)
         model = model_builder()
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+        optimizer = build_optimizer(model, args)
         criterion = nn.CrossEntropyLoss()
         history = train(
             model=model,
@@ -196,23 +229,25 @@ def run_experiment(args):
             test_loader=test_loader,
             device=device,
             epochs_n=args.epochs,
+            show_progress=args.show_progress,
         )
         histories[model_name] = history
 
-        checkpoint_path = output_dirs["checkpoints"] / f"{model_name}_smoke.pth"
+        checkpoint_path = output_dirs["checkpoints"] / f"{model_name}_comparison.pth"
         torch.save(model.state_dict(), checkpoint_path)
         print(f"Saved checkpoint: {checkpoint_path}")
 
-    metrics_path = output_dirs["results"] / "vgg_batchnorm_smoke_metrics.json"
+    metrics_path = output_dirs["results"] / "vgg_batchnorm_comparison_metrics.json"
     save_json(
         {
             "args": vars(args),
+            "epochs": list(range(1, args.epochs + 1)),
             "histories": histories,
         },
         metrics_path,
     )
 
-    figure_path = output_dirs["pic"] / "vgg_batchnorm_smoke_curves.png"
+    figure_path = output_dirs["pic"] / "vgg_batchnorm_comparison_curves.png"
     plot_training_curves(histories, figure_path)
 
     print(f"Saved metrics: {metrics_path}")
